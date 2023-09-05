@@ -1,0 +1,38 @@
+---
+let path = Astro.url.pathname;
+---
+
+<nav class="px-4 md:px-8 flex justify-between h-20 items-center bg-gray-900">
+  <a href="/" class="font-bold text-3xl tracking-widest hover:text-white">ALR</a
+  >
+  <ul class="flex space-x-3 text-gray-200 text-lg items-center">
+    <li
+      class={path === "/"
+        ? "text-white bg-gray-800 px-3 py-2 rounded-lg"
+        : "px-3 py-2"}
+    >
+      <a href="/">Home</a>
+    </li>
+    <li
+      class={path === "/about"
+        ? "text-white bg-gray-800 px-3 py-2 rounded-lg"
+        : "px-3 py-2"}
+    >
+      <a href="/about">About</a>
+    </li>
+    <li
+      class={path === "/blog"
+        ? "text-white bg-gray-800 px-3 py-2 rounded-lg"
+        : "px-3 py-2"}
+    >
+      <a href="/blog">Blog</a>
+    </li>
+    <li
+      class={path === "/contact"
+        ? "text-white bg-gray-800 px-3 py-2 rounded-lg"
+        : "px-3 py-2"}
+    >
+      <a href="/contact">Contact</a>
+    </li>
+  </ul>
+</nav>

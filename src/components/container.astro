@@ -1,0 +1,8 @@
+---
+let props = Astro.props;
+let extraStyles = Astro.props.extraStyles;
+---
+
+<div {...props} class:list={["px-4 md:px-8 w-full", extraStyles]}>
+  <slot />
+</div>

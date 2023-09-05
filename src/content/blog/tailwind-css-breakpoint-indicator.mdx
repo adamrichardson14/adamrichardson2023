@@ -1,0 +1,55 @@
+---
+publishDate: "Jul 31 2023"
+title: "Tailwindcss Breakpoint indicator for development! Super Useful"
+description: "In this blog post I'm going to show you one of my favourite helpers for developing with tailwindcss."
+category: "Website Development"
+tags: [Tailwindcss, React]
+---
+
+## How do you know the current breakpoint with Tailwindcss?
+
+You can look up the pixels on each one and slowly try and move your screen width to that amount of pixels... This is slow and kind of annoying! I recently discovered this trick inside of a Next.js template, and have added it to every project since! I felt compelled to write and share this to people that may not have seen it before!
+
+Here is a code snippet you're going to love! This will display the current tailwindcss breakpoint while you're in development, so you can quickly adjust the width and always see what breakpoint you should be targetting.
+
+### Create the component
+
+```tsx
+export function TailwindIndicator() {
+	if (process.env.NODE_ENV === "production") return null;
+
+	return (
+		<div className="fixed bottom-1 left-1 z-50 flex h-6 w-6 items-center justify-center rounded-full bg-gray-800 p-3 font-mono text-xs text-white">
+			<div className="block sm:hidden">xs</div>
+			<div className="hidden sm:block md:hidden">sm</div>
+			<div className="hidden md:block lg:hidden">md</div>
+			<div className="hidden lg:block xl:hidden">lg</div>
+			<div className="hidden xl:block 2xl:hidden">xl</div>
+			<div className="hidden 2xl:block">2xl</div>
+		</div>
+	);
+}
+```
+
+### Include the component at the highest level in your app
+
+For example, I'm using Next.js app router, so I would include this in the app router.
+
+```tsx
+export default function RootLayout({ children }: RootLayoutProps) {
+	return (
+		<html lang="en" suppressHydrationWarning>
+			<head />
+			<body>
+				<div>
+					<Header />
+					<main>{children}</main>
+				</div>
+				<TailwindIndicator />
+			</body>
+		</html>
+	);
+}
+```
+
+Now, whenever you are developing you will see a handy indicator in the botton right of the screen, stating the current Tailwindcss breakpoint!

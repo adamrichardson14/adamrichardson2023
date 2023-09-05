@@ -1,0 +1,136 @@
+---
+publishDate: "Apr 1 2023"
+title: "Next JS 13 App Directory - Server Component Search Form"
+description: "In this blog post, you will learn how to do a search form using React Server components, working with Next JS 13 App Dir"
+category: "Website Development"
+tags: [Next.js, Website, Javascript]
+image: "~/assets/images/blog/form-nextjs.png"
+---
+
+import form from "/form.png?url";
+
+## Introduction
+
+I suppose the main reason for this post is that I had a couple of issues and didn't find many helpful resources on this subject, so I thought I would publish my solution for those trying to do the same thing!
+
+### React Server Components
+
+I want this form/resulting data fetch to be completely server side. Usually with Next.js you would use the router to pull off the query paramaters. If you're not fussed on server components. You can absolutely follow this pattern.
+
+Here is the [documentation](https://beta.nextjs.org/docs/api-reference/use-search-params) on how to do that!
+
+We're going full server side. There is a pattern demonstrated in the docs [here](https://beta.nextjs.org/docs/api-reference/file-conventions/page) but there are a few considerations
+
+### Defining the Component
+
+```tsx
+export default function AllPostsPage({
+  params,
+  searchParams,
+}: {
+  params: { lang: string };
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
+
+  const searchQuery = searchParams.query?.toString().toLowerCase()
+
+  //return
+```
+
+We have a slightly complex example here as we're pulling in the language as a param. The file structure for the project is app>[lang]>blog>page.tsx
+
+We're taking the searchparams as a prop. The keys are strings, and the values can be a string, an array of strings, or undefined. This is useful for handling query parameters in a URL, where each key-value pair represents a separate parameter.
+
+### Creating the form
+
+Here is a view of the form, so you can picture what we're making here
+
+<img src={form} alt="Image of a website form" />
+
+```tsx
+<form className="flex w-full" action={`/${params.lang}/blog`}>
+	<div className="relative flex w-full">
+		<input
+			type="text"
+			autoComplete="off"
+			defaultValue={searchQuery?.toString()}
+			name="query"
+			placeholder="SEO..."
+			className="z-10 h-12 grow-[4] rounded-l-lg border-0 bg-gray-900 text-gray-100 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-400"
+		/>
+		<div className="absolute -inset-0.5 -z-10 animate-tilt rounded-lg bg-gradient-to-r from-cyan-300 to-sky-600 opacity-75 blur transition duration-1000 group-hover:opacity-100 group-hover:duration-200"></div>
+		<button
+			type="submit"
+			className="w-30 grow-[1] rounded-r-lg bg-gray-950 px-4 py-2 text-white hover:bg-gray-900">
+			Search
+		</button>
+	</div>
+</form>
+```
+
+There are a few important things about the code
+
+- We are searching in the current page. That's maybe not ideal. You can easily create another route for `/search` and have the action go there `/blog/search`
+- We are capturing the default value in our form. Because we're using an action, we're essentially reloading the page, which would clear the value from the input. This ensures the value is populated after search. One thing I'd like to add to the UI is a X button to clear the search
+- The name query is important here. This is the name of our query key that we are capturing in `searchQuery`
+- If you're not using localisation, you won't need the `params.lang`
+
+### Returning the posts
+
+Hopefully this is readable
+
+```tsx
+const allPosts = allBlogs.filter((post) => post.lang === params.lang);
+let posts;
+const searchQuery = searchParams.query?.toString().toLowerCase();
+
+if (searchQuery) {
+	const queryWords = searchQuery.split(" ");
+
+	posts = allBlogs.filter((post) => {
+		if (post.lang !== params.lang) {
+			return false;
+		}
+
+		const title = post.title.toLowerCase();
+		const description = post.description.toLowerCase();
+
+		return queryWords.some((word) => title.includes(word) || description.includes(word));
+	});
+}
+
+if (!searchQuery) {
+	posts = allPosts;
+}
+```
+
+1. We get all the posts, and filter to the current language. `allPosts`
+2. We define a posts variable, which will be returned, either with allPosts, or if there is a query we will filter all posts
+3. Search is hard. This is a simple solution that will do the trick for plenty of scenarios. We are essentially taking the word/words, splitting them into an array and matching any words in the array to any word in the title or description.
+4. If there is no search query, we just return all posts.
+
+## Watch outs
+
+### Middleware
+
+I'm using middleware to redirect/rewrite URLs for i18n in this website. Ensure that you include the query in the redirect/rewrite or this will not work.
+
+Here is an example of how to construct the URL with the searchParams.
+
+```ts
+if (pathnameIsMissingLocale) {
+	const newUrl = new URL(`/${i18n.defaultLocale}${pathname}`, request.url);
+	newUrl.search = searchParams.toString();
+	return NextResponse.rewrite(newUrl);
+}
+```
+
+### Dynamic Page
+
+Because this is a server component, by default it will become a static page. Using searchParams should make it dynamic, but I've found it doesn't. Ensure you make the page `force-dynamic`. Again, I think it would be better to have a separate search page here, as we're forcing our home blog posts page to be dynamic, when it really doesn't need to be.
+
+```tsx
+export const dynamic = "force-dynamic";
+```
+
+I don't think I had any other issues to work through and it's working well. I will update to have a static blog page, and a dynamic search page though soon!

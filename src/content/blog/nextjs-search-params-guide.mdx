@@ -1,0 +1,133 @@
+---
+publishDate: "Aug 28 2023"
+title: "Search Parameters Full Guide - How to Implement with Next.js"
+description: "Learn all about search parameters, when to use them and how to implement search parameters with Next.js"
+category: "Next.js"
+tags: [Next.js, Website]
+---
+
+Search parameters are a great way of managing state within an application. Using search parameters as state refers to reflecting the current state of a UI or application in the URL's query parameters
+
+I made a youtube video on [Search Parameters with Next.js](https://www.youtube.com/watch?v=HuZxu_i4gO0) if you prefer watching video content.
+
+## When to use Search Parameters
+
+- Data fetching State
+- Page numbers for pagination
+- Search Terms
+- Filtering
+- Tabs & Modal info
+
+## When not to use
+
+- Personalisation
+- Sensitive Information
+- No long term importance
+
+## Next.js Implementation
+
+### Data fetching component example
+
+This component is simply used to mimic a real API call that would use the data from the search parameters.
+
+```ts
+export async function fetchData(id: string | undefined, include: string | undefined): Promise<any> {
+	const data = {
+		id: id || "",
+		include: include || "",
+	};
+
+	return new Promise((resolve) => {
+		setTimeout(() => {
+			resolve(data);
+		}, 1000);
+	});
+}
+```
+
+### Home page
+
+We are able to access the searchParams prop in any page or layout files with Next.js. We are bringing in a data display component, along with a IdNext component which will update the query parameter.
+
+```tsx
+import { Suspense } from "react";
+import DataDisplay from "./DataDisplay";
+import IdNext from "./id-next";
+
+export default function Home({
+	searchParams,
+}: {
+	searchParams: { id: string | undefined; include: string | undefined };
+}) {
+	return (
+		<div className="mt-10 max-w-7xl px-6 mx-auto">
+			<IdNext />
+			<div className="mt-10">
+				<Suspense key={searchParams.id} fallback={<div>Loading...</div>}>
+					<DataDisplay id={searchParams.id} include={searchParams.include} />
+				</Suspense>
+			</div>
+		</div>
+	);
+}
+```
+
+### Data display component
+
+```tsx
+import { fetchData } from "@/lib/data";
+import { Suspense } from "react";
+
+export default async function DataDisplay({
+	id,
+	include,
+}: {
+	id: string | undefined;
+	include: string | undefined;
+}) {
+	const data = await fetchData(id, include);
+	return <div>{JSON.stringify(data, undefined, 2)}</div>;
+}
+```
+
+### Id Next component - Updating Search param
+
+Whenever updating search parameters, you must use this pattern to ensure other search parameters are preserved.
+
+```tsx
+"use client";
+
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback } from "react";
+
+export default function IdNext() {
+	const searchParams = useSearchParams()!;
+	const id = searchParams.get("id");
+	const router = useRouter();
+
+	const createQueryString = useCallback(
+		(name: string, value: string) => {
+			const params = new URLSearchParams(searchParams);
+			params.set(name, value);
+
+			return params.toString();
+		},
+		[searchParams]
+	);
+
+	return (
+		<div>
+			<button
+				onClick={() => {
+					let nextId = parseInt(id ?? "0") + 1;
+					router.push(`/?${createQueryString("id", nextId.toString())}`);
+				}}
+				className="bg-gray-200 px-3 py-1 border-gray-200">
+				Next Project
+			</button>
+		</div>
+	);
+}
+```
+
+It really is that simple. Try and implement another search parameter, such as toggling the include parameter!

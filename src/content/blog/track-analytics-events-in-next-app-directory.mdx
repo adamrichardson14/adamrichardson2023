@@ -1,0 +1,91 @@
+---
+publishDate: "Nov 19 2022"
+title: "Track analytics events in Nextjs 13 App directory"
+description: "With the changes to Next.js 13 app directory, and mainly the fact “router.events” is no longer supported, here is how you can register analytics events"
+image: "~/assets/images/blog/track_analytics_events.png"
+category: "Website Development"
+tags: [Next.js, Website, Analytics, Javascript]
+---
+
+## Introduction
+
+For all of you not only trying out the new Next.js 13 app folder, but brave enough to go to production, you will need some analytics!
+
+Lots of analytics libraries will use **router.events,** which is not supported by the **useRouter** imported from **next/navigation**
+
+### Previous React Hook
+
+Previously I had this simple hook, which would log pages
+
+```jsx
+import * as Fathom from "fathom-client";
+import { useRouter } from "next/router";
+import { useEffect } from "react";
+
+export const useFathom = () => {
+	const router = useRouter();
+
+	useEffect(() => {
+		if (process.env.NODE_ENV === "production") {
+			Fathom.load(process.env.NEXT_PUBLIC_FATHOM_ID, {
+				includedDomains: ["adamrichardson.dev", "www.adamrichardson.dev"],
+			});
+		}
+
+		function onRouteChangeComplete() {
+			Fathom.trackPageview();
+		}
+
+		router.events.on("routeChangeComplete", onRouteChangeComplete);
+
+		return () => {
+			router.events.off("routeChangeComplete", onRouteChangeComplete);
+		};
+	}, [router.events]);
+};
+```
+
+### What it looks like now
+
+The two hooks that we need to use are only available in client components. I created a simple component you can import into the root layout, which will track all of your page views
+
+```jsx
+/* eslint-disable react-hooks/exhaustive-deps */
+"use client";
+
+import { useEffect } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import * as Fathom from "fathom-client";
+
+export default function Analytics({}) {
+  const id = process.env.NEXT_PUBLIC_FATHOM_ID as string;
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    Fathom.load(id, {
+      includedDomains: ["adamrichardson.dev", "www.adamrichardson.dev"],
+    });
+
+    let newPageViewPath: string | undefined;
+
+    if (pathname) {
+      newPageViewPath = pathname + searchParams.toString();
+      Fathom.trackPageview({
+        url: newPageViewPath,
+        referrer: document.referrer,
+      });
+    }
+  }, [pathname, searchParams]);
+
+  return <></>;
+}
+```
+
+You can see this component is just returning a fragment. It’s a client component that we will insert into the root layout.
+
+**********\*\*\*\***********useEffect()**********\*\*\*\*********** is being used here which is going to rerun the code if the pathname or searchParams changes.
+
+### Root layout
+
+This is for my website, which I’ve just updated to Next.js 13. Here is the root layout

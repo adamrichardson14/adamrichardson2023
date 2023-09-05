@@ -1,0 +1,219 @@
+---
+publishDate: "Apr 11 2023"
+title: "Next.js 13+ AppDir i18n / Localisation guide"
+description: "Learn how to do i18n with Next.js 13 App router. This article shows from end to end how to do localisation with Next.js App router"
+category: "Next.js"
+tags: [Nextjs, i18n, Localisation]
+---
+
+There are not too many examples going around of how to do this properly. I'm not going to explain everything in depth as it's a more advanced concept but I will give the full code and highlight a few important concepts that will maybe same you some time!
+
+## App structure
+
+With Next.js 13, we've created the locale as a parameter. Configure your app directory to look like this
+
+```
+app
+  [lang]
+    page.tsx
+    layout.tsx
+    about
+      page.tsx
+```
+
+This is giving the lang parameter to every page. It's also making every URL prefixed by the locale, which is not ideal for the default. We will sort that out.
+
+## Middleware
+
+We're using middleware to read the browser headers and determine the correct locale. We're also rewriting the default locale `en` to `/` here
+
+Here is the full `middleware.ts` code.
+
+```ts
+// Import cookies-next library
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+import { i18n } from "../i18n-config";
+
+import { match as matchLocale } from "@formatjs/intl-localematcher";
+import Negotiator from "negotiator";
+
+function getLocale(request: NextRequest): string | undefined {
+	// Negotiator expects plain object so we need to transform headers
+	const negotiatorHeaders: Record<string, string> = {};
+	request.headers.forEach((value, key) => (negotiatorHeaders[key] = value));
+
+	// Use negotiator and intl-localematcher to get best locale
+	let languages = new Negotiator({ headers: negotiatorHeaders }).languages();
+
+	// @ts-ignore locales are readonly
+	const locales: string[] = i18n.locales;
+
+	return matchLocale(languages, locales, i18n.defaultLocale);
+}
+
+export function middleware(request: NextRequest) {
+	const { pathname, searchParams } = request.nextUrl;
+
+	if (
+		[
+			"/manifest.json",
+			"/favicon.ico",
+			"/next.svg",
+			"/vercel.svg",
+			"/thirteen.svg",
+			"/sitemap.xml",
+			"/sitemap-0.xml",
+			"/sitemap-*.xml",
+			"/images/*.jpg",
+			"/*.jpg",
+			"/*.svg",
+			"/*.png",
+			"/og.jpg",
+		].includes(pathname)
+	)
+		return;
+
+	if (pathname.startsWith(`/${i18n.defaultLocale}/`) || pathname === `/${i18n.defaultLocale}`) {
+		const newUrl = new URL(
+			pathname.replace(`/${i18n.defaultLocale}`, pathname === `/${i18n.defaultLocale}` ? "/" : ""),
+			request.url
+		);
+		newUrl.search = searchParams.toString();
+		return NextResponse.redirect(newUrl, { status: 301 });
+	}
+
+	const pathnameIsMissingLocale = i18n.locales.every(
+		(locale) => !pathname.startsWith(`/${locale}/`) && pathname !== `/${locale}`
+	);
+
+	if (pathnameIsMissingLocale) {
+		const newUrl = new URL(`/${i18n.defaultLocale}${pathname}`, request.url);
+		newUrl.search = searchParams.toString();
+		return NextResponse.rewrite(newUrl);
+	}
+}
+
+export const config = {
+	matcher: ["/((?!api|_next/static|_next/image|assets|favicon.ico|sw.js).*)"],
+};
+```
+
+### Important points from the middleware
+
+1. We do a locale match on headers
+2. We will match the correct locale
+3. If it's missing locale (default) then we will rewrite to include the locale
+4. It's important here to also include and searchParams as they will be lost with any rewrites
+
+## Links within the application
+
+```tsx
+<Link
+  href={`/${lang}/consultation`}
+>
+```
+
+I always included the lang in the link like this. It will either come from `params.lang` or pass it to any components. You could absolutely create a wrapper on link to handle this
+
+## Translated content
+
+I have a translations folder, and the content is structured like this
+
+```ts
+export const headerContent = {
+	en: {
+		services: "Services",
+		consultationTitle: "Book A Free Consultation",
+		consultationTag: "FREE",
+		consultationDescription: "Don't hesitate to book a free, no obligation consultation with us.",
+	},
+	ro: {
+		services: "Servicii",
+		consultationTitle: "Rezervați o consultație gratuită",
+		consultationTag: "GRATUIT",
+		consultationDescription: "Nu ezitați să rezervați o consultație gratuită, fără obligații.",
+	},
+};
+```
+
+## Consuming the content
+
+You can use either a react style hook, or just a regular old function. The hooks are maintaining the types you set on the content, so that it's typesafe
+
+```ts
+export function getLocaleContent<T extends Record<string, any>>(
+	content: T,
+	locale: string
+): T[keyof T] {
+	const localizedContent = content[locale] || content.en;
+	return localizedContent;
+}
+```
+
+```ts
+export function useLocaleContent<T extends Record<string, any>>(
+	content: T,
+	locale: string
+): T[keyof T] {
+	const localizedContent = content[locale] || content.en;
+	return localizedContent;
+}
+```
+
+## Blog Posts & MDX
+
+I'm using content layer to generate blog posts, here is the config that makes this easy. I'm just calculating a field based on the filepath. Different translations are in different folders. I'm not translating the slug of the posts here.
+
+```
+content
+  blog
+    en
+      awesome-post-1.mdx
+    ro
+      awesome-post-1.mdx
+    fr
+      awesome-post-1.mdx
+```
+
+`contentlayer.config.js`
+
+```js
+const computedFields = {
+	lang: {
+		type: "string",
+		resolve: (doc) => doc._raw.flattenedPath.split("/")[0],
+	},
+};
+```
+
+## Consuming the posts
+
+```tsx
+export default async function Blog({ params }: { params: { slug: string; lang: string } }) {
+	const post = allBlogs.find((post) => post.slug === params.slug && post.lang === params.lang);
+
+	if (!post) {
+		notFound();
+	}
+	// Rest of the post
+}
+```
+
+## Generating Metadata
+
+```tsx
+export async function generateMetadata({
+	params,
+}: {
+	params: { lang: string; slug: string };
+}): Promise<Metadata> {
+	const post = allBlogs.find((post) => post.slug === params.slug && post.lang === params.lang);
+	if (!post) {
+		return {};
+	}
+
+	// metadata fields here
+}
+```

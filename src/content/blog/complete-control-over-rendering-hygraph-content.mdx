@@ -1,0 +1,128 @@
+---
+publishDate: "Sep 22 2022"
+title: "Create a Hygraph block renderer with Next.js"
+description: "In this article, I will show you how you can create your own Hygraph Block renderer to give complete control over your content, create custom blocks for use with next/image etc"
+image: "~/assets/images/blog/asd.png"
+category: "Website Development"
+tags: [Javascript, Website, React]
+---
+
+### Introduction
+
+I’ve recently moved my web dev company website over to Hygraph as a backend CMS. I wanted to keep some existing functionality, such as having a content menu on blog posts and projects, which means I needed to customise the elements. I also wanted to use next/image on images to make sure all images across the site are properly optimised, including those coming through as content in blog posts and projects.
+
+This post will show you how to create your very own Block renderer to be used with the raw or json content output, giving the ultimate flexibility when dealing with Hygraph content.
+
+## Basic principle of a block renderer
+
+All content is made up of blocks. These blocks are things such as Links, Paragraphs, headings and images.
+
+I’ve fetched my data from Hygraph, and I’m running the following statement to show the json output of a post. You will have an array of objects that look like this.
+
+```jsx
+{type: 'heading-two', children: Array(1)}
+{type: 'paragraph', children: Array(1)}
+{type: 'paragraph', children: Array(1)}
+{type: 'heading-two', children: Array(1)}
+```
+
+It’s quite simple to think conceptually about what we want. Where we have a type of heading-two for example, we will want to render a h2 tag on the front end of the website, styled in a certain way.
+
+Let’s look at how we can make that happen!
+
+### Create a file and export a default function from it
+
+```jsx
+export default function BlockRenderer({ blocks }) {}
+```
+
+This is actually a React component, which we will pass the full array of blocks to.
+
+### Passing all of the blocks to this component
+
+```jsx
+<div className="flex flex-col">
+	<BlockRenderer blocks={post.content.json.children} />
+</div>
+```
+
+### Do stuff with individual blocks
+
+Lets take our Block renderer and do something for a heading-two
+
+```jsx
+export default function BlockRenderer({ blocks }) {
+	return (
+		<div>
+			{blocks &&
+				blocks.map((block) => {
+					switch (block.type) {
+						case "heading-two":
+							return (
+								<h2
+									id={slugify(block.children[0].text)}
+									key={slugify(block.children[0].text)}
+									className="font-bold mt-4 text-2xl py-4 leading-7 text-slate-900"
+								>
+									{block.children[0].text}
+								</h2>
+							);
+						default:
+							return <span>{JSON.stringify(block)}</span>;
+					}
+				})}
+		</div>
+	);
+}
+```
+
+Let’s go through the code here. We are exporting a single react component, which in this case is a div. For a blog, you can make this an `article`
+
+Within that div, we are mapping over the full array of blocks, and entering into a switch statement. The switch statement is then working dependent on the type of block that is passed into it.
+
+We are then outputting a component for every block, as a child of the outer div, from the map statement. This means everything we return needs a unique key.
+
+You can see we needed to pass an id within the h2 tag so that we can use #these-links within our page for navigation in the article
+
+### Adding additional blocks/types within the case statement
+
+```jsx
+export default function BlockRenderer({ blocks }) {
+	return (
+		<div>
+			{blocks &&
+				blocks.map((block) => {
+					switch (block.type) {
+						case "heading-two":
+							return (
+								<h2
+									id={slugify(block.children[0].text)}
+									key={slugify(block.children[0].text)}
+									className="font-bold mt-4 text-2xl py-4 leading-7 text-slate-900"
+								>
+									{block.children[0].text}
+								</h2>
+							);
+						case "image":
+							return (
+								<Image
+									src={block.src}
+									key={slugify(block.src)}
+									width={block.width}
+									alt={block.altText ? block.altText : "Blog post image"}
+									height={block.height}
+									className="w-full object-cover h-auto"
+								/>
+							);
+						default:
+							return <span>{JSON.stringify(block)}</span>;
+					}
+				})}
+		</div>
+	);
+}
+```
+
+We are now handling H2 and image blocks to work the way we want to within our blog post. The default case statement will handle everything else right now and spit out the json content, which is not ideal. When I was making all of the content, I made these red so they stood out, until I had all the types that we use within our blog posts!
+
+I’d encourage you to go and make some for yourself! Careful for paragraphs and bulleted-list! You will need some additional logic on these to make them work as they contain arrays of children!
