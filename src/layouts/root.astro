@@ -1,0 +1,17 @@
+---
+import { SEO } from "astro-seo";
+
+let props = Astro.props;
+---
+
+<html lang="en">
+  <head>
+    <meta name="viewport" content="width=device-width" />
+    <SEO {...props} />
+  </head>
+  <body>
+    <main class="bg-gray-950 text-gray-100 h-screen">
+      <slot />
+    </main>
+  </body>
+</html>
